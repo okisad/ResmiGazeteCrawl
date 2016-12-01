@@ -1,4 +1,5 @@
 import org.apache.commons.io.FileUtils;
+import org.apache.solr.client.solrj.SolrServerException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -18,12 +19,26 @@ public class App {
 
         App app = new App();
 
-        String url = "http://www.resmigazete.gov.tr/eskiler";
+        app.writeDocumentsToPath();
 
-        int numberOfLastDays = app.getNumberOfLastDays();
+        Solr solr = new Solr();
 
         try {
-            Map<Calendar,List<String>> yonetmelikBundle = app.getYonetmeliklerBundle(numberOfLastDays,url);
+            solr.indexDataToSolr();
+        } catch (SolrServerException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    private void writeDocumentsToPath(){
+
+        String url = "http://www.resmigazete.gov.tr/eskiler";
+
+        int numberOfLastDays = getNumberOfLastDays();
+
+        try {
+            Map<Calendar,List<String>> yonetmelikBundle = getYonetmeliklerBundle(numberOfLastDays,url);
 
             for (Map.Entry<Calendar,List<String>> entry : yonetmelikBundle.entrySet()) {
 
@@ -33,23 +48,22 @@ public class App {
 
                     for (String s:entry.getValue()){
 
-                        URL filledUrl = new URL(url + "/"+entry.getKey().get(Calendar.YEAR)+"/"+app.getProperMonth(entry.getKey().get(Calendar.MONTH))+"/"+s);
+                        URL filledUrl = new URL(url + "/"+entry.getKey().get(Calendar.YEAR)+"/"+getProperMonth(entry.getKey().get(Calendar.MONTH))+"/"+s);
 
-                        File file1 = new File(file.getPath()+"/"+app.getProperDay(entry.getKey().get(Calendar.DAY_OF_MONTH))+"/"+s);
+                        File file1 = new File(file.getPath()+"/"+getProperDay(entry.getKey().get(Calendar.DAY_OF_MONTH))+"/"+s);
 
                         FileUtils.copyURLToFile(filledUrl,file1);
 
                     }
 
-
                 }
-
 
             }
 
         } catch (IOException e) {
             e.printStackTrace();
         }
+
 
     }
 
@@ -81,7 +95,7 @@ public class App {
 
         List<String> yonetmelikler = new ArrayList<String>();
 
-        Document document = Jsoup.connect(url).get();
+        Document document = Jsoup.connect(url).timeout(7000).get();
 
         Elements tableElements = document.select("table#AutoNumber1");
 
@@ -97,8 +111,6 @@ public class App {
             if (element.select("font").text().equals("YÖNETMELİKLER")||element.select("font").text().equals("YÖNETMELİK")){
 
                 inYonetmelikler = true;
-
-                System.out.println("geldi");
 
             }
 
@@ -142,7 +154,7 @@ public class App {
         int month = calender.get(Calendar.MONTH) + 1; // Note: zero based!
         int day = calender.get(Calendar.DAY_OF_MONTH);
 
-        File theDir = new File(year + File.separator + month);
+        File theDir = new File("yonetmelikler"+File.separator+year + File.separator + month);
 
         if (!theDir.exists()) {
 
